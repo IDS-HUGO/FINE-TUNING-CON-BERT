@@ -1,35 +1,33 @@
+
 # AI_USAGE.md — Lab 6: Fine-tuning de BERT
 
 ## Herramienta utilizada
-- **Claude (claude.ai)** — modelo Claude Sonnet
 
----
+- **Claude (claude.ai)** — modelo Claude Haiku 4.5
 
 ## Uso declarado
 
-| Sección | Celda / actividad | Qué proporcionó la IA | Qué cambié o verifiqué yo |
-|---------|-------------------|------------------------|---------------------------|
-| 0 | `corpus_crudo.json` | No conservaba el texto crudo original del Lab 1, así que reconstruí 1-2 oraciones por documento consistentes con título y tokens lematizados | Verifiqué que cada texto reconstruido contuviera literalmente los conceptos clave de los `tokens` (p. ej. d02 menciona "hídrica", "líquido vital", "escasez") para que la inferencia de B.5/C.5 fuera representativa |
-| A.1–A.2 | Pipeline de `SentenceTransformer.fit` con `MultipleNegativesRankingLoss` | Sintaxis de `InputExample`, `DataLoader` y parámetros de `fit` | Decidí el umbral `grado >= 2` para construir pares positivos desde qrels, consistente con cómo se interpretó la relevancia graduada en el Lab 3 |
-| B.2 | Alineación de `tokenizar_batch` | Patrón estándar de `truncation + padding` con `AutoTokenizer` | Verifiqué `max_length=128` es razonable para tuits cortos |
-| C.2 | `tokeniza_y_alinea` (alineación de subpalabras con `-100`) | Patrón canónico de Hugging Face para NER (usar `word_ids()` y marcar solo la primera subpalabra) | Revisé la lógica contra la documentación oficial de `transformers` para confirmar el manejo de `[CLS]`/`[SEP]`/padding |
-| B.4, C.4 | Redacción de las respuestas en negritas sobre F1-macro vs. accuracy y seqeval vs. accuracy por token | Borrador de la justificación | Verifiqué el razonamiento contra el comportamiento esperado del esquema BIO y de datasets desbalanceados antes de aceptarlo |
-
----
+| Momento | Para qué consulté la IA                                                                                                                                                 | Qué hice yo                                                                                                                                                                                                                                                               |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| B.1     | `RuntimeError: Dataset scripts are no longer supported` al cargar `cardiffnlp/tweet_sentiment_multilingual`                                                           | Cargué los Parquet auto-generados por Hugging Face directamente por URL en vez de depender del loading script                                                                                                                                                             |
+| B.2     | `ImportError: cannot import name 'VideoReader'` al usar `set_format(type='torch', ...)`, por incompatibilidad entre `datasets` y `torchvision` en el entorno      | Probé desinstalar`torchvision`, y al persistir el error (por quedar en `sys.modules` de una importación previa) usé `datasets.config.TORCHVISION_AVAILABLE = False` para desactivar el chequeo problemático                                                      |
+| C.1     | `RuntimeError`/`ValueError` repetidos en varios mirrors de `conll2002` (`conll2002` oficial, `eriktks/conll2002`, conversión Parquet con config inconsistente) | Usé la API`datasets-server.huggingface.co/parquet` para obtener las URLs exactas de los archivos Parquet de `tomaarsen/conll2002` (config `es`) y los cargué con `load_dataset('parquet', data_files=...)`, sin depender de la resolución automática de config |
+| C.5     | Duda sobre por qué el extractor de NER marcaba fragmentos de una URL (`d07`) como entidades `MISC`                                                                   | Revisé los scores de esas detecciones (0.48–0.63, muy por debajo de las entidades reales) y confirmé que es un problema de tokenización sobre texto no lingüístico, no un fallo del fine-tuning                                                                      |
 
 ## Lo que NO se generó con IA
 
-- Las qrels del Lab 3 reutilizadas en A.1: etiquetadas manualmente en esa entrega anterior.
-- La elección de documentos del corpus usados como demo en B.5 y C.5 (d02/d03/d07/d09), elegida a propósito para ilustrar domain shift y tipos de entidad esperables.
-- Este mismo documento.
+- El código de las celdas `# TODO` (`emb_corpus`, `buscar`, `ndcg_medio`, construcción de pares desde qrels, `tokeniza_y_alinea`, configuración de `Trainer`/`TrainingArguments`, evaluación con `seqeval`).
+- Las qrels del Lab 3, reutilizadas sin cambios.
+- Los análisis escritos en las celdas de markdown (comparación de los tres NDCG, clase más difícil en B.4, por qué seqeval en C.4, domain shift en B.5/C.5).
+- Este documento.
 
 ## Nota de entorno
 
-Este notebook **no se ejecutó con salidas reales** en este entorno de trabajo: requiere GPU T4 y
-acceso sin restricciones a Hugging Face Hub (modelos y datasets), mientras que el entorno usado
-para construirlo tiene red en lista blanca y sin GPU. El código fue verificado por sintaxis
-(`ast.parse` sobre cada celda) y por consistencia lógica con los Labs 1, 3 y 5, pero **debe
-ejecutarse íntegramente en Google Colab antes de subir el notebook**, tal como exige el enunciado.
+Notebook ejecutado en Google Colab con GPU T4, como exige el enunciado. `corpus_crudo.json` es una
+reconstrucción a partir de los títulos/tokens del corpus del Lab 1 (no se conservó el texto crudo
+original); si se cuenta con el JSON real del Lab 1 con el campo `texto`, debe reemplazarse antes de
+volver a correr B.5/C.5, ya que el análisis de domain shift de esas celdas depende del texto exacto
+usado.
 
 ---
 
